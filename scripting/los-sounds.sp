@@ -157,7 +157,7 @@ public bool CanHear(int shooter, int client) {
 		return true;
 	}
 
-	CloneHandle(ray);
+	CloseHandle(ray);
 
 	//PrintToConsole(shooter, "Shot muted since ray-trace did not hit player.");
 
