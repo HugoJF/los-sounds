@@ -23,9 +23,13 @@
 
 #define PLUGIN_VERSION "1.1"
 
+#define MAX_CACHE_LIFE 0.5
+
 ConVar cv_distance;
 
 float g_fEyeOffset[3] = { 0.0, 0.0, 64.0 }; /* CSGO offset. */
+float g_fLastShot[MAXPLAYERS];
+bool g_bCanSee[MAXPLAYERS][MAXPLAYERS];
 
 public Plugin myinfo =
 {
@@ -61,6 +65,8 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int nu
 	// Check which clients need to be excluded.
 	int[] newClients = new int[MaxClients];
 	int newTotal = 0;
+
+	g_fLastShot[shooterIndex] = GetEngineTime();
 
 	for (int i = 0; i < numClients; i++) {
 		int client = players[i];
@@ -112,6 +118,35 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int nu
 // with small editions to use on this plugin
 //
 
+public bool ShouldUpdate(int shooter) {
+	float last = g_fLastShot[shooter];
+
+	return (GetEngineTime() - last) > MAX_CACHE_LIFE;
+}
+
+public bool UpdateVisibility(int shooter) {
+	float shooterPos[3];
+	GetClientAbsOrigin(shooter, shooterPos);
+
+	float shooterEye[3];
+	AddVectors(shooterPos, g_fEyeOffset, shooterEye);
+
+	for (int client = 1; client < MaxClients; client++) {
+		if (!IsValidClient(client)) continue;
+
+		float clientPos[3];
+		GetClientAbsOrigin(client, clientPos);
+
+		float clientEye[3];
+		AddVectors(clientPos, g_fEyeOffset, clientEye);
+
+		TR_TraceRayFilter(shooterEye, clientEye, MASK_PLAYERSOLID_BRUSHONLY, RayType_EndPoint, TraceEntityFilterPlayer);
+		
+		// If ray hit, then players can see each other
+		g_bCanSee[shooter][client] = TR_DidHit(INVALID_HANDLE);
+	}
+}
+
 public bool CanHear(int shooter, int client) {
 	if (!IsValidClient(shooter) || !IsValidClient(client) || shooter == client) {
 		return true;
@@ -141,27 +176,11 @@ public bool CanHear(int shooter, int client) {
 		return false;
 	}
 
-	float shooterEyePosition[3];
-	float clientEyePosition[3];
-	AddVectors(shooterPos, g_fEyeOffset, shooterEyePosition);
-	AddVectors(clientPos, g_fEyeOffset, clientEyePosition);
-
-	Handle ray = TR_TraceRayFilterEx(shooterEyePosition, clientEyePosition, MASK_PLAYERSOLID_BRUSHONLY, RayType_EndPoint, TraceEntityFilterPlayer);
-	
-	// If ray hit, then players can see each other
-	if (!TR_DidHit(ray)) {
-		// PrintToConsole(shooter, "Shot transmitted since ray-trace hit player %N.", client);
-
-		CloseHandle(ray);
-
-		return true;
+	if (ShouldUpdate(shooter)) {
+		UpdateVisibility(shooter);
 	}
 
-	CloseHandle(ray);
-
-	//PrintToConsole(shooter, "Shot muted since ray-trace did not hit player.");
-
-	return false;
+	return g_bCanSee[shooter][client];
 }
 
 public bool TraceEntityFilterPlayer(int entity, int contentsMask)
