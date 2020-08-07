@@ -66,8 +66,6 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int nu
 	int[] newClients = new int[MaxClients];
 	int newTotal = 0;
 
-	g_fLastShot[shooterIndex] = GetEngineTime();
-
 	for (int i = 0; i < numClients; i++) {
 		int client = players[i];
 
@@ -82,6 +80,8 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int nu
 			newTotal++;
 		}
 	}
+
+	g_fLastShot[shooterIndex] = GetEngineTime();
 
 	// No clients were excluded.
 	if (newTotal == numClients) {
@@ -119,6 +119,8 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int nu
 public bool ShouldUpdate(int shooter) {
 	float last = g_fLastShot[shooter];
 
+	PrintToConsole(shooter, "Last shot: %f", last);
+
 	return (GetEngineTime() - last) > MAX_CACHE_LIFE;
 }
 
@@ -130,7 +132,11 @@ public bool UpdateVisibility(int shooter) {
 	AddVectors(shooterPos, g_fEyeOffset, shooterEye);
 
 	for (int client = 1; client < MaxClients; client++) {
-		if (!IsValidClient(client)) continue;
+		if (
+			!IsValidClient(client) || 
+			IsFakeClient(client) ||
+			shooter == client
+			) continue;
 
 		float clientPos[3];
 		GetClientAbsOrigin(client, clientPos);
@@ -141,7 +147,9 @@ public bool UpdateVisibility(int shooter) {
 		TR_TraceRayFilter(shooterEye, clientEye, MASK_PLAYERSOLID_BRUSHONLY, RayType_EndPoint, TraceEntityFilterPlayer);
 		
 		// If ray hit, then players can see each other
-		g_bCanSee[shooter][client] = TR_DidHit(INVALID_HANDLE);
+		g_bCanSee[shooter][client] = !TR_DidHit(INVALID_HANDLE);
+
+		PrintToConsole(shooter, "Can see %N: %b", client, g_bCanSee[shooter][client]);
 	}
 }
 
@@ -175,7 +183,10 @@ public bool CanHear(int shooter, int client) {
 	}
 
 	if (ShouldUpdate(shooter)) {
+		PrintToConsole(shooter, "Updating your visibility!");
 		UpdateVisibility(shooter);
+	} else {
+		PrintToConsole(shooter, "Visibility CACHED!");
 	}
 
 	return g_bCanSee[shooter][client];
