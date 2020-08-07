@@ -71,7 +71,7 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int nu
 		int client = players[i];
 
 		bool rebroadcast = true;
-		if (IsValidClient(client)) {
+		if (IsValidClient(client) && !IsFakeClient(client)) {
 			rebroadcast = CanHear(shooterIndex, client);
 		}
 
