@@ -29,6 +29,7 @@ ConVar cv_distance;
 
 float g_fEyeOffset[3] = { 0.0, 0.0, 64.0 }; /* CSGO offset. */
 float g_fLastShot[MAXPLAYERS];
+float g_fLastComputed[MAXPLAYERS];
 bool g_bCanSee[MAXPLAYERS][MAXPLAYERS];
 
 public Plugin myinfo =
@@ -117,11 +118,13 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int nu
 //
 
 public bool ShouldUpdate(int shooter) {
-	float last = g_fLastShot[shooter];
+	float lastShot = g_fLastShot[shooter];
+	float lastComputed = g_fLastComputed[shooter];
 
-	PrintToConsole(shooter, "Last shot: %f", last);
+	PrintToConsole(shooter, "Last shot: %f", lastShot);
+	float now = GetEngineTime();
 
-	return (GetEngineTime() - last) > MAX_CACHE_LIFE;
+	return (now - lastShot) > MAX_CACHE_LIFE || (now - lastComputed) > MAX_CACHE_LIFE * 2;
 }
 
 public bool UpdateVisibility(int shooter) {
@@ -130,6 +133,8 @@ public bool UpdateVisibility(int shooter) {
 
 	float shooterEye[3];
 	AddVectors(shooterPos, g_fEyeOffset, shooterEye);
+
+	g_fLastComputed[shooter] = GetEngineTime();
 
 	for (int client = 1; client < MaxClients; client++) {
 		if (
