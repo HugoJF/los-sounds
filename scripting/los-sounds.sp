@@ -121,7 +121,7 @@ public bool ShouldUpdate(int shooter) {
 	float lastShot = g_fLastShot[shooter];
 	float lastComputed = g_fLastComputed[shooter];
 
-	PrintToConsole(shooter, "Last shot: %f", lastShot);
+	//PrintToConsole(shooter, "Last shot: %f", lastShot);
 	float now = GetEngineTime();
 
 	return (now - lastShot) > MAX_CACHE_LIFE || (now - lastComputed) > MAX_CACHE_LIFE * 2;
@@ -154,7 +154,7 @@ public bool UpdateVisibility(int shooter) {
 		// If ray hit, then players can see each other
 		g_bCanSee[shooter][client] = !TR_DidHit(INVALID_HANDLE);
 
-		PrintToConsole(shooter, "Can see %N: %b", client, g_bCanSee[shooter][client]);
+		// PrintToConsole(shooter, "Can see %N: %b", client, g_bCanSee[shooter][client]);
 	}
 }
 
@@ -188,10 +188,10 @@ public bool CanHear(int shooter, int client) {
 	}
 
 	if (ShouldUpdate(shooter)) {
-		PrintToConsole(shooter, "Updating your visibility!");
+		// PrintToConsole(shooter, "Updating your visibility!");
 		UpdateVisibility(shooter);
 	} else {
-		PrintToConsole(shooter, "Visibility CACHED!");
+		// PrintToConsole(shooter, "Visibility CACHED!");
 	}
 
 	return g_bCanSee[shooter][client];
