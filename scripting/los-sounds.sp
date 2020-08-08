@@ -21,7 +21,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "1.1"
+#define PLUGIN_VERSION "0.4"
 
 #define MAX_CACHE_LIFE 0.5
 
@@ -34,16 +34,16 @@ bool g_bCanSee[MAXPLAYERS][MAXPLAYERS];
 
 public Plugin myinfo =
 {
-	name = "SM Franug Hear Shots By Area and LOS",
+	name = "LOS Sounds",
 	author = "de_nerd, Franc1sco franug",
 	description = "",
 	version = PLUGIN_VERSION,
-	url = "http://steamcommunity.com/id/franug"
+	url = "https://steamcommunity.com/id/de_nerd"
 };
 
 public void OnPluginStart()
 {
-	CreateConVar("sm_franugshotsbyarea_version", PLUGIN_VERSION, "", FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
+	CreateConVar("sm_los_sounds_version", PLUGIN_VERSION, "", FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
 	
 	cv_distance = CreateConVar("sm_franugshotsbyarea_distance", "2000.0", "Max distance from the shooter for don't hear him when the listener dont are in the same map place that shooter. 0.0 = use only map places");
 	
@@ -121,7 +121,7 @@ public bool ShouldUpdate(int shooter) {
 	float lastShot = g_fLastShot[shooter];
 	float lastComputed = g_fLastComputed[shooter];
 
-	//PrintToConsole(shooter, "Last shot: %f", lastShot);
+	// PrintToConsole(shooter, "Last shot: %f", lastShot);
 	float now = GetEngineTime();
 
 	return (now - lastShot) > MAX_CACHE_LIFE || (now - lastComputed) > MAX_CACHE_LIFE * 2;
