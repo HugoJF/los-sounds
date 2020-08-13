@@ -21,7 +21,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "0.4"
+#define PLUGIN_VERSION "0.5"
 
 #define MAX_CACHE_LIFE 0.5
 
