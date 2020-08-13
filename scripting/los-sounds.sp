@@ -31,85 +31,95 @@ float g_fEyeOffset[3] = { 0.0, 0.0, 64.0 }; /* CSGO offset. */
 float g_fLastShot[MAXPLAYERS];
 float g_fLastComputed[MAXPLAYERS];
 bool g_bCanSee[MAXPLAYERS][MAXPLAYERS];
+float g_fLastHurt[MAXPLAYERS][MAXPLAYERS];
 
 public Plugin myinfo =
 {
-	name = "LOS Sounds",
-	author = "de_nerd, Franc1sco franug",
-	description = "",
-	version = PLUGIN_VERSION,
-	url = "https://steamcommunity.com/id/de_nerd"
+    name = "LOS Sounds",
+    author = "de_nerd, Franc1sco franug",
+    description = "",
+    version = PLUGIN_VERSION,
+    url = "https://steamcommunity.com/id/de_nerd"
 };
 
 public void OnPluginStart()
 {
-	CreateConVar("sm_los_sounds_version", PLUGIN_VERSION, "", FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
-	
-	cv_distance = CreateConVar("sm_franugshotsbyarea_distance", "2000.0", "Max distance from the shooter for don't hear him when the listener dont are in the same map place that shooter. 0.0 = use only map places");
-	
-	// weapon sounds
-	AddTempEntHook("Shotgun Shot", Hook_ShotgunShot);
+    CreateConVar("sm_los_sounds_version", PLUGIN_VERSION, "", FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
+    
+    cv_distance = CreateConVar("sm_franugshotsbyarea_distance", "2000.0", "Max distance from the shooter for don't hear him when the listener dont are in the same map place that shooter. 0.0 = use only map places");
+    
+    // weapon sounds
+    AddTempEntHook("Shotgun Shot", Hook_ShotgunShot);
+    HookEvent("player_hurt",  Event_Player_Hurt);
 }
 
 public bool IsValidClient( int client ) 
 { 
-	if ( !( 1 <= client <= MaxClients ) || !IsClientInGame(client) ) 
-		return false; 
-	 
-	return true; 
+    if ( !( 1 <= client <= MaxClients ) || !IsClientInGame(client) ) 
+        return false; 
+     
+    return true; 
 }
 
-public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int numClients, float delay) {
+public void Event_Player_Hurt(Handle event, char[] name, bool dontBroadcast)
+{
+    int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
+    int victim = GetClientOfUserId(GetEventInt(event, "userid"));
 
-	int shooterIndex = TE_ReadNum("m_iPlayer") + 1;
+    g_fLastHurt[attacker][victim] = GetEngineTime();
+}
 
-	// Check which clients need to be excluded.
-	int[] newClients = new int[MaxClients];
-	int newTotal = 0;
+public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int numClients, float delay)
+{
+    int shooterIndex = TE_ReadNum("m_iPlayer") + 1;
 
-	for (int i = 0; i < numClients; i++) {
-		int client = players[i];
+    // Check which clients need to be excluded.
+    int[] newClients = new int[MaxClients];
+    int newTotal = 0;
 
-		bool rebroadcast = true;
-		if (IsValidClient(client) && !IsFakeClient(client)) {
-			rebroadcast = CanHear(shooterIndex, client);
-		}
+    for (int i = 0; i < numClients; i++) {
+        int client = players[i];
 
-		if (rebroadcast) {
-			// This Client should be able to hear it.
-			newClients[newTotal] = client;
-			newTotal++;
-		}
-	}
+        bool rebroadcast = true;
+        if (IsValidClient(client) && !IsFakeClient(client)) {
+            rebroadcast = CanHear(shooterIndex, client);
+        }
 
-	g_fLastShot[shooterIndex] = GetEngineTime();
+        if (rebroadcast) {
+            // This Client should be able to hear it.
+            newClients[newTotal] = client;
+            newTotal++;
+        }
+    }
 
-	// No clients were excluded.
-	if (newTotal == numClients) {
-		return Plugin_Continue;
-	}
+    g_fLastShot[shooterIndex] = GetEngineTime();
 
-	// All clients were excluded and there is no need to broadcast.
-	if (newTotal == 0) {
-		return Plugin_Stop;
-	}
+    // No clients were excluded.
+    if (newTotal == numClients) {
+        return Plugin_Continue;
+    }
 
-	// Re-broadcast to clients that still need it.
-	float vTemp[3];
-	TE_Start("Shotgun Shot");
-	TE_ReadVector("m_vecOrigin", vTemp);
-	TE_WriteVector("m_vecOrigin", vTemp);
-	TE_WriteFloat("m_vecAngles[0]", TE_ReadFloat("m_vecAngles[0]"));
-	TE_WriteFloat("m_vecAngles[1]", TE_ReadFloat("m_vecAngles[1]"));
-	TE_WriteNum("m_weapon", TE_ReadNum("m_weapon"));
-	TE_WriteNum("m_iMode", TE_ReadNum("m_iMode"));
-	TE_WriteNum("m_iSeed", TE_ReadNum("m_iSeed"));
-	TE_WriteNum("m_iPlayer", TE_ReadNum("m_iPlayer"));
-	TE_WriteFloat("m_fInaccuracy", TE_ReadFloat("m_fInaccuracy"));
-	TE_WriteFloat("m_fSpread", TE_ReadFloat("m_fSpread"));
-	TE_Send(newClients, newTotal, delay);
+    // All clients were excluded and there is no need to broadcast.
+    if (newTotal == 0) {
+        return Plugin_Stop;
+    }
 
-	return Plugin_Stop;
+    // Re-broadcast to clients that still need it.
+    float vTemp[3];
+    TE_Start("Shotgun Shot");
+    TE_ReadVector("m_vecOrigin", vTemp);
+    TE_WriteVector("m_vecOrigin", vTemp);
+    TE_WriteFloat("m_vecAngles[0]", TE_ReadFloat("m_vecAngles[0]"));
+    TE_WriteFloat("m_vecAngles[1]", TE_ReadFloat("m_vecAngles[1]"));
+    TE_WriteNum("m_weapon", TE_ReadNum("m_weapon"));
+    TE_WriteNum("m_iMode", TE_ReadNum("m_iMode"));
+    TE_WriteNum("m_iSeed", TE_ReadNum("m_iSeed"));
+    TE_WriteNum("m_iPlayer", TE_ReadNum("m_iPlayer"));
+    TE_WriteFloat("m_fInaccuracy", TE_ReadFloat("m_fInaccuracy"));
+    TE_WriteFloat("m_fSpread", TE_ReadFloat("m_fSpread"));
+    TE_Send(newClients, newTotal, delay);
+
+    return Plugin_Stop;
 }
 
 //
@@ -118,87 +128,106 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] players, int nu
 //
 
 public bool ShouldUpdate(int shooter) {
-	float lastShot = g_fLastShot[shooter];
-	float lastComputed = g_fLastComputed[shooter];
+    float lastShot = g_fLastShot[shooter];
+    float lastComputed = g_fLastComputed[shooter];
 
-	// PrintToConsole(shooter, "Last shot: %f", lastShot);
-	float now = GetEngineTime();
+    // PrintToConsole(shooter, "Last shot: %f", lastShot);
+    float now = GetEngineTime();
 
-	return (now - lastShot) > MAX_CACHE_LIFE || (now - lastComputed) > MAX_CACHE_LIFE * 2;
+    return (now - lastShot) > MAX_CACHE_LIFE || (now - lastComputed) > MAX_CACHE_LIFE * 2;
 }
 
 public bool UpdateVisibility(int shooter) {
-	float shooterPos[3];
-	GetClientAbsOrigin(shooter, shooterPos);
+    float shooterPos[3];
+    GetClientAbsOrigin(shooter, shooterPos);
 
-	float shooterEye[3];
-	AddVectors(shooterPos, g_fEyeOffset, shooterEye);
+    float shooterEye[3];
+    AddVectors(shooterPos, g_fEyeOffset, shooterEye);
 
-	g_fLastComputed[shooter] = GetEngineTime();
+    g_fLastComputed[shooter] = GetEngineTime();
 
-	for (int client = 1; client < MaxClients; client++) {
-		if (
-			!IsValidClient(client) || 
-			IsFakeClient(client) ||
-			shooter == client
-			) continue;
+    for (int client = 1; client < MaxClients; client++) {
+        if (
+            !IsValidClient(client) || 
+            IsFakeClient(client) ||
+            shooter == client
+            ) continue;
 
-		float clientPos[3];
-		GetClientAbsOrigin(client, clientPos);
+        float clientPos[3];
+        GetClientAbsOrigin(client, clientPos);
 
-		float clientEye[3];
-		AddVectors(clientPos, g_fEyeOffset, clientEye);
+        float clientEye[3];
+        AddVectors(clientPos, g_fEyeOffset, clientEye);
 
-		TR_TraceRayFilter(shooterEye, clientEye, MASK_PLAYERSOLID_BRUSHONLY, RayType_EndPoint, TraceEntityFilterPlayer);
-		
-		// If ray hit, then players can see each other
-		g_bCanSee[shooter][client] = !TR_DidHit(INVALID_HANDLE);
+        TR_TraceRayFilter(shooterEye, clientEye, MASK_PLAYERSOLID_BRUSHONLY, RayType_EndPoint, TraceEntityFilterPlayer);
+        
+        // If ray hit, then players can see each other
+        g_bCanSee[shooter][client] = !TR_DidHit(INVALID_HANDLE);
 
-		// PrintToConsole(shooter, "Can see %N: %b", client, g_bCanSee[shooter][client]);
-	}
+        // PrintToConsole(shooter, "Can see %N: %b", client, g_bCanSee[shooter][client]);
+    }
+}
+
+public bool WasRecentlyHurtBy(int client, int shooter) {
+    float now = GetEngineTime();
+    float last = g_fLastHurt[shooter][client];
+
+    return (now - last) < 2;
 }
 
 public bool CanHear(int shooter, int client) {
-	if (!IsValidClient(shooter) || !IsValidClient(client) || shooter == client) {
-		return true;
-	}
+    if (!IsValidClient(shooter) || !IsValidClient(client) || shooter == client) {
+        return true;
+    }
 
-	char area1[128], area2[128];
-	GetEntPropString(shooter, Prop_Send, "m_szLastPlaceName", area1, sizeof(area1)); 
-	GetEntPropString(client, Prop_Send, "m_szLastPlaceName", area2, sizeof(area2)); 
+    char area1[128], area2[128];
+    GetEntPropString(shooter, Prop_Send, "m_szLastPlaceName", area1, sizeof(area1)); 
+    GetEntPropString(client, Prop_Send, "m_szLastPlaceName", area2, sizeof(area2)); 
 
-	// If in the same area, always transmit
-	if (StrEqual(area1, area2)) {
-		// PrintToConsole(shooter, "Shot transmitted to %N. Same area %s", client, area1);
+    // If in the same area, always transmit
+    if (StrEqual(area1, area2)) {
+        // PrintToConsole(shooter, "Shot transmitted to %N. Same area %s", client, area1);
 
-		return true;	
-	}
+        return true;    
+    }
 
-	float shooterPos[3];
-	float clientPos[3];
-	GetClientAbsOrigin(shooter, shooterPos);
-	GetClientAbsOrigin(client, clientPos);
-	float distance = GetVectorDistance(shooterPos, clientPos);
-	
-	// If too far away, never transmit
-	if (distance >= cv_distance.FloatValue) {
-		// PrintToConsole(shooter, "Shot muted to %N. Too far away: %f", client, distance);
+    float shooterPos[3];
+    float clientPos[3];
+    GetClientAbsOrigin(shooter, shooterPos);
+    GetClientAbsOrigin(client, clientPos);
+    float distance = GetVectorDistance(shooterPos, clientPos);
+    
+    if (WasRecentlyHurtBy(client, shooter)) {
+        // PrintToConsole(shooter, "Shot transmitted to %N. Recently hurt", client);
+        return true;
+    }
 
-		return false;
-	}
+    // If close, transmit
+    if (distance <= cv_distance.FloatValue) {
+        // PrintToConsole(shooter, "Shot transmitted to %N. Close: %f", client, distance);
 
-	if (ShouldUpdate(shooter)) {
-		// PrintToConsole(shooter, "Updating your visibility!");
-		UpdateVisibility(shooter);
-	} else {
-		// PrintToConsole(shooter, "Visibility CACHED!");
-	}
+        return true;
+    }
 
-	return g_bCanSee[shooter][client];
+    if (ShouldUpdate(shooter)) {
+        // PrintToConsole(shooter, "Updating your visibility!");
+        UpdateVisibility(shooter);
+    } else {
+        // PrintToConsole(shooter, "Visibility CACHED!");
+    }
+
+    if (g_bCanSee[shooter][client]) {
+        // PrintToConsole(shooter, "Shot transmitted to %N. Can see", client);
+
+        return true;
+    }
+
+    // PrintToConsole(shooter, "Shot muted");
+    return false;
 }
 
 public bool TraceEntityFilterPlayer(int entity, int contentsMask)
 {
-	if ((entity > 0) && (entity <= MaxClients)) return false;
-	return true;
+    if ((entity > 0) && (entity <= MaxClients)) return false;
+    return true;
 }
